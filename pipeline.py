@@ -21,7 +21,7 @@ class Game:
     def __init__(self):
     def winner(self,s):
         return r_T
-    
+
 def pipeline():
     net=Network()
     game=Game()
