@@ -1,3 +1,12 @@
+'''
+input:
+======
+the current situation with history situations of the game board
+form:
+-----
+
+
+'''
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -60,24 +69,24 @@ class Res_block(nn.Module):
 
 
 class Policy_head(nn.Module):
-    def __init__(self, in_planes=256, in_size=19):
+    def __init__(self, in_planes=256, in_size=7):
         super(Policy_head, self).__init__()
         self.conv = conv1x1(in_planes, out_planes=2)
         self.bn = nn.BatchNorm2d(2)
         self.relu = nn.ReLU(inplace=True)
-        self.fc = nn.Linear(in_size * in_size * 2, 362)
+        self.fc = nn.Linear(in_size * in_size * 2, in_size*in_size+1)
 
     def forward(self, x):
         out = self.conv(x)
         out = self.bn(out)
         out = self.relu(out)
         out = out.view(out.size(0), -1)
-        out = self.fc(out)
-        return out
+        P = self.fc(out)
+        return P
 
 
 class Value_head(nn.Module):
-    def __init__(self, in_planes=256,in_size=19):
+    def __init__(self, in_planes=256,in_size=7):
         super(Value_head, self).__init__()
         self.conv = conv1x1(in_planes, out_planes=1)
         self.bn = nn.BatchNorm2d(1)
@@ -94,12 +103,12 @@ class Value_head(nn.Module):
         x=self.fc1(x)
         x=self.relu2(x)
         x=self.fc2(x)
-        out=self.tanh(x) # output a scalar in the range [-1,1]
-        return out
+        v=self.tanh(x) # output a scalar in the range [-1,1]
+        return v
 
 
 class Network(nn.Module):
-    def __init__(self,block_num):
+    def __init__(self,block_num,bord_size):
         super(Network,self).__init__()
         self.input_block=Input_block()
         resblocks=[]
@@ -107,16 +116,16 @@ class Network(nn.Module):
         for i in range(block_num):
             resblocks.append(res_block)
         self.res_tower=nn.Sequential(*resblocks)
-        self.value_head=Value_head()
-        self.policy_head=Policy_head()
+        self.value_head=Value_head(in_size=bord_size)
+        self.policy_head=Policy_head(in_size=bord_size)
     def forward(self, s):
         '''
         Input
         =====
-        s:{Variable} torch.size([19x19x17])
+        s:{Variable} size Nx17x7x7
         Output
         ======
-        P:{Variable} size Nx(19*19+1)
+        P:{Variable} size Nx(7x7+1)
         v:{Variable} size Nx1 in the range [-1,1]
         '''
         x=self.input_block.forward(s)
@@ -128,9 +137,9 @@ class Network(nn.Module):
         pass
 
 if __name__=='__main__':
-    s=torch.randn(32,17,19,19)
+    s=torch.randn(32,17,7,7)
     s=Variable(s.cuda())
-    net=Network(19)
+    net=Network(19,7)
     net=net.cuda()
     P,v=net(s)
     print('P=',P,'\n','v=',v)
